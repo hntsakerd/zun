@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Heart</title>
+
+<style>
+html, body {
+  margin: 0;
+  height: 100%;
+  background: #000;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  overflow: hidden;
+}
+
+.box {
+  position: relative;
+  width: 90vw;
+  height: 90vw;
+  max-width: 500px;
+  max-height: 500px;
+}
+
+canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* TEXT */
+.text {
+  position: absolute;
+  width: 100%;
+  top: 40%;
+  text-align: center;
+  color: white;
+  font-size: 22px;
+  font-weight: bold;
+  z-index: 2;
+}
+</style>
+</head>
+
+<body>
+<div class="box">
+  <canvas id="pinkboard"></canvas>
+  <div class="text">yêu embe Zun ❤️</div>
+</div>
+
+<script>
+var settings = {
+  particles: { length: 1500, duration: 2, velocity: 100, effect: -1.3, size: 13 }
+};
+
+class Point {
+  constructor(x=0,y=0){this.x=x;this.y=y;}
+  clone(){return new Point(this.x,this.y);}
+  length(l){
+    if(l===undefined) return Math.sqrt(this.x*this.x+this.y*this.y);
+    this.normalize(); this.x*=l; this.y*=l; return this;
+  }
+  normalize(){
+    let l=this.length(); this.x/=l; this.y/=l; return this;
+  }
+}
+
+class Particle {
+  constructor(){
+    this.position=new Point();
+    this.velocity=new Point();
+    this.acceleration=new Point();
+    this.age=0;
+  }
+  init(x,y,dx,dy){
+    this.position.x=x; this.position.y=y;
+    this.velocity.x=dx; this.velocity.y=dy;
+    this.acceleration.x=dx*settings.particles.effect;
+    this.acceleration.y=dy*settings.particles.effect;
+    this.age=0;
+  }
+  update(dt){
+    this.position.x+=this.velocity.x*dt;
+    this.position.y+=this.velocity.y*dt;
+    this.velocity.x+=this.acceleration.x*dt;
+    this.velocity.y+=this.acceleration.y*dt;
+    this.age+=dt;
+  }
+  draw(ctx,img){
+    let t=this.age/settings.particles.duration;
+    let size=img.width*((--t)*t*t+1);
+    ctx.globalAlpha=1-this.age/settings.particles.duration;
+    ctx.drawImage(img,this.position.x-size/2,this.position.y-size/2,size,size);
+  }
+}
+
+class Pool {
+  constructor(n){
+    this.particles=Array.from({length:n},()=>new Particle());
+    this.first=0; this.last=0;
+  }
+  add(x,y,dx,dy){
+    this.particles[this.last].init(x,y,dx,dy);
+    this.last=(this.last+1)%this.particles.length;
+    if(this.last===this.first)
+      this.first=(this.first+1)%this.particles.length;
+  }
+  update(dt){
+    let i=this.first;
+    while(i!==this.last){
+      this.particles[i].update(dt);
+      i=(i+1)%this.particles.length;
+    }
+  }
+  draw(ctx,img){
+    let i=this.first;
+    while(i!==this.last){
+      this.particles[i].draw(ctx,img);
+      i=(i+1)%this.particles.length;
+    }
+  }
+}
+
+(function(canvas){
+  const ctx=canvas.getContext("2d");
+  const pool=new Pool(settings.particles.length);
+  const rate=settings.particles.length/settings.particles.duration;
+  let time;
+
+  function heart(t){
+    return new Point(
+      160*Math.pow(Math.sin(t),3),
+      130*Math.cos(t)-50*Math.cos(2*t)-20*Math.cos(3*t)-10*Math.cos(4*t)+25
+    );
+  }
+
+  const img=(()=>{
+    let c=document.createElement("canvas");
+    let x=c.getContext("2d");
+    c.width=c.height=settings.particles.size;
+    x.fillStyle="#FF5CA4";
+    x.beginPath();
+    let t=-Math.PI,p=heart(t);
+    x.moveTo(c.width/2+p.x*c.width/350,c.height/2-p.y*c.height/350);
+    while(t<Math.PI){
+      t+=0.01;
+      p=heart(t);
+      x.lineTo(c.width/2+p.x*c.width/350,c.height/2-p.y*c.height/350);
+    }
+    x.fill();
+    let img=new Image();
+    img.src=c.toDataURL();
+    return img;
+  })();
+
+  function resize(){
+    canvas.width=canvas.clientWidth;
+    canvas.height=canvas.clientHeight;
+  }
+
+  function render(){
+    requestAnimationFrame(render);
+    let now=Date.now()/1000;
+    let dt=now-(time||now);
+    time=now;
+
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+
+    let amount=rate*dt;
+    for(let i=0;i<amount;i++){
+      let pos=heart(Math.PI-2*Math.PI*Math.random());
+      let dir=pos.clone().length(settings.particles.velocity);
+      pool.add(canvas.width/2+pos.x,canvas.height/2-pos.y,dir.x,-dir.y);
+    }
+
+    pool.update(dt);
+    pool.draw(ctx,img);
+  }
+
+  window.onresize=resize;
+  setTimeout(()=>{resize();render();},100);
+
+})(document.getElementById("pinkboard"));
+</script>
+
+</body>
+</html>
